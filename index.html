@@ -153,7 +153,7 @@ const POR_PAGINA = 20;
 async function init() {
   mostrarCargando();
   try {
-    const res = await fetch('./inventario.json');
+    const res = await fetch('./inventario.json?v=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     inventarioCompleto = data;
