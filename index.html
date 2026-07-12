@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Red Desguace · API Test</title>
+<style>
+  :root {
+    --verde:       #1B4332;
+    --verde-med:   #2D6A4F;
+    --verde-claro: #52B788;
+    --naranja:     #E76F51;
+    --fondo:       #F8F9FA;
+    --blanco:      #FFFFFF;
+    --gris-1:      #F1F3F5;
+    --gris-2:      #DEE2E6;
+    --gris-3:      #868E96;
+    --tinta:       #212529;
+    --sombra:      0 2px 8px rgba(0,0,0,0.08);
+    --radio:       10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--fondo); color: var(--tinta); line-height: 1.5; }
+
+  /* HEADER */
+  header { background: var(--verde); color: white; padding: 16px 24px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--verde-claro); }
+  .badge-test { background: var(--naranja); color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; letter-spacing: 1px; text-transform: uppercase; }
+  header .spacer { flex: 1; }
+  .stats-header { font-size: 12px; opacity: 0.7; text-align: right; }
+  .stats-header strong { color: var(--verde-claro); font-size: 14px; }
+
+  /* BUSCADOR */
+  .buscador-wrap { background: var(--verde-med); padding: 24px; }
+  .buscador-inner { max-width: 900px; margin: 0 auto; }
+  .buscador-inner h2 { color: white; font-size: 14px; font-weight: 600; margin-bottom: 12px; opacity: 0.85; }
+  .buscador-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .buscador-row input, .buscador-row select { flex: 1; min-width: 160px; padding: 10px 14px; border: none; border-radius: var(--radio); font-size: 14px; background: rgba(255,255,255,0.15); color: white; outline: none; }
+  .buscador-row input::placeholder { color: rgba(255,255,255,0.5); }
+  .buscador-row select option { background: var(--verde); color: white; }
+  .btn-buscar { background: var(--naranja); color: white; border: none; padding: 10px 24px; border-radius: var(--radio); font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .btn-buscar:hover { opacity: 0.9; }
+  .btn-buscar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* LAYOUT PRINCIPAL */
+  .main { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+  /* ESTADO */
+  .estado { text-align: center; padding: 48px 24px; color: var(--gris-3); }
+  .estado .ico { font-size: 40px; margin-bottom: 12px; }
+  .estado p { font-size: 15px; }
+  .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--gris-2); border-top-color: var(--verde); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* GRID PIEZAS */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .card { background: var(--blanco); border-radius: var(--radio); box-shadow: var(--sombra); overflow: hidden; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+  .card.activa { border-color: var(--verde-claro); }
+  .card-img { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--gris-1); display: block; }
+  .card-img-placeholder { width: 100%; aspect-ratio: 1; background: var(--gris-1); display: flex; align-items: center; justify-content: center; font-size: 32px; color: var(--gris-2); }
+  .card-body { padding: 12px; }
+  .card-ref { font-size: 10px; font-weight: 700; color: var(--naranja); text-transform: uppercase; letter-spacing: 0.5px; }
+  .card-titulo { font-size: 13px; font-weight: 700; color: var(--tinta); margin: 4px 0 2px; line-height: 1.3; }
+  .card-vehiculo { font-size: 11px; color: var(--gris-3); }
+  .card-precio { font-size: 16px; font-weight: 800; color: var(--verde); margin-top: 8px; }
+  .card-precio.sin-precio { color: var(--gris-3); font-size: 12px; font-weight: 400; }
+
+  /* PANEL DETALLE */
+  .detalle { background: var(--blanco); border-radius: var(--radio); box-shadow: var(--sombra); margin-bottom: 24px; overflow: hidden; }
+  .detalle-header { background: var(--verde); color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .detalle-header h3 { font-size: 16px; font-weight: 700; }
+  .btn-cerrar { background: rgba(255,255,255,0.15); border: none; color: white; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .detalle-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  @media (max-width: 600px) { .detalle-body { grid-template-columns: 1fr; } }
+
+  .detalle-fotos { padding: 16px; background: var(--gris-1); }
+  .foto-principal { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; background: var(--gris-2); }
+  .fotos-thumb { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .fotos-thumb img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
+  .fotos-thumb img:hover, .fotos-thumb img.activa { border-color: var(--verde-claro); }
+  .sin-foto { width: 100%; aspect-ratio: 4/3; background: var(--gris-2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--gris-3); }
+
+  .detalle-info { padding: 16px; overflow-y: auto; max-height: 500px; }
+  .detalle-precio { font-size: 28px; font-weight: 800; color: var(--verde); margin-bottom: 16px; }
+  .detalle-precio small { font-size: 12px; font-weight: 400; color: var(--gris-3); display: block; }
+
+  .seccion { margin-bottom: 16px; }
+  .seccion-titulo { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gris-3); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--gris-2); }
+  .dato-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--gris-1); }
+  .dato-row:last-child { border-bottom: none; }
+  .dato-label { color: var(--gris-3); flex-shrink: 0; margin-right: 8px; }
+  .dato-valor { font-weight: 600; text-align: right; word-break: break-all; }
+  .tag-ktype { display: inline-block; background: var(--naranja); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .tag-codver { display: inline-block; background: var(--verde-med); color: white; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+
+  /* PAGINACION */
+  .paginacion { display: flex; justify-content: center; gap: 8px; margin-top: 24px; }
+  .paginacion button { padding: 8px 16px; border: 1px solid var(--gris-2); background: var(--blanco); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .paginacion button:hover { background: var(--verde); color: white; border-color: var(--verde); }
+  .paginacion button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .paginacion .info-pag { padding: 8px 12px; font-size: 13px; color: var(--gris-3); }
+
+  /* EXTRA DATOS badge */
+  .extra-badge { display: inline-block; background: #E8F5E9; color: var(--verde-med); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Red <span>Desguace</span></div>
+  <div class="badge-test">API TEST</div>
+  <div class="spacer"></div>
+  <div class="stats-header" id="stats-header">Conectando...</div>
+</header>
+
+<div class="buscador-wrap">
+  <div class="buscador-inner">
+    <h2>🔍 Buscar en inventario Metasync (producción)</h2>
+    <div class="buscador-row">
+      <input type="text" id="q" placeholder="Artículo, referencia..." />
+      <input type="text" id="marca" placeholder="Marca vehículo..." />
+      <input type="text" id="modelo" placeholder="Modelo..." />
+      <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div id="detalle-wrap" style="display:none"></div>
+  <div id="resultado">
+    <div class="estado">
+      <div class="ico">🔧</div>
+      <p>Introduce un término de búsqueda para explorar el inventario en tiempo real.</p>
+    </div>
+  </div>
+  <div id="paginacion-wrap"></div>
+</div>
+
+<script>
+const API_KEY  = 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
+const EMPRESA  = '1225';
+const OFFSET   = 50; // fichas por página en la UI
+const BASE     = 'https://apis.metasync.com';
+
+let piezasTodas = [];
+let paginaActual = 1;
+const POR_PAGINA = 20;
+
+// Cargar conteo inicial
+async function init() {
+  try {
+    const res = await fetch(`${BASE}/Almacen/ConteoPiezasEmpresa`, {
+      headers: { apikey: API_KEY, idempresa: EMPRESA, fecha: '2000-01-01' }
+    });
+    const total = await res.json();
+    document.getElementById('stats-header').innerHTML = `Inventario: <strong>${total.toLocaleString('es-ES')}</strong> piezas`;
+  } catch(e) {
+    document.getElementById('stats-header').textContent = 'API conectada';
+  }
+}
+init();
+
+async function buscar(lastId = 0, acumular = false) {
+  const q      = document.getElementById('q').value.trim().toLowerCase();
+  const marca  = document.getElementById('marca').value.trim().toLowerCase();
+  const modelo = document.getElementById('modelo').value.trim().toLowerCase();
+
+  if (!q && !marca && !modelo) {
+    mostrarEstado('⚠️', 'Introduce al menos un criterio de búsqueda.');
+    return;
+  }
+
+  document.getElementById('btn-buscar').disabled = true;
+  mostrarCargando();
+
+  try {
+    // Traemos hasta 5 páginas de 1000 para tener datos suficientes
+    if (!acumular) piezasTodas = [];
+    let lastIdActual = 0;
+    let paginas = 0;
+
+    while (paginas < 5) {
+      const res = await fetch(`${BASE}/Almacen/RecuperarCambiosCanalEmpresa`, {
+        headers: {
+          apikey:    API_KEY,
+          fecha:     '2000-01-01',
+          lastid:    String(lastIdActual),
+          offset:    '1000',
+          idempresa: EMPRESA,
+        }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const { piezas = [], vehiculos = [], result_set } = data;
+
+      // Construir mapa de vehículos de esta página
+      const mapaVeh = {};
+      for (const v of vehiculos) {
+        const id = String(v.idLocal ?? v.codigo ?? '');
+        if (id) mapaVeh[id] = v;
+      }
+
+      // Filtrar piezas por criterios
+      for (const p of piezas) {
+        const desc = (p.descripcionArticulo || '').toLowerCase();
+        const veh  = mapaVeh[String(p.idVehiculo)] || {};
+        const marc = (veh.nombreMarca || '').toLowerCase();
+        const mod  = (veh.nombreModelo || '').toLowerCase();
+
+        const okQ     = !q     || desc.includes(q);
+        const okMarca = !marca || marc.includes(marca);
+        const okMod   = !modelo|| mod.includes(modelo);
+
+        if (okQ && okMarca && okMod) {
+          piezasTodas.push({ ...p, _veh: veh });
+        }
+      }
+
+      lastIdActual = result_set?.lastId || 0;
+      paginas++;
+      if (!result_set || result_set.count < 1000) break;
+    }
+
+    paginaActual = 1;
+    renderResultados();
+
+  } catch(e) {
+    mostrarEstado('❌', `Error: ${e.message}`);
+  }
+
+  document.getElementById('btn-buscar').disabled = false;
+}
+
+function renderResultados() {
+  const total = piezasTodas.length;
+  const inicio = (paginaActual - 1) * POR_PAGINA;
+  const fin    = Math.min(inicio + POR_PAGINA, total);
+  const pagina = piezasTodas.slice(inicio, fin);
+  const totalPags = Math.ceil(total / POR_PAGINA);
+
+  if (total === 0) {
+    mostrarEstado('🔍', 'Sin resultados. Prueba con otros términos.');
+    document.getElementById('paginacion-wrap').innerHTML = '';
+    return;
+  }
+
+  const html = `
+    <p style="font-size:13px;color:var(--gris-3);margin-bottom:16px;">
+      ${total.toLocaleString('es-ES')} piezas encontradas · mostrando ${inicio+1}–${fin}
+    </p>
+    <div class="grid">
+      ${pagina.map((p, i) => cardHtml(p, inicio + i)).join('')}
+    </div>
+  `;
+  document.getElementById('resultado').innerHTML = html;
+
+  // Paginación
+  document.getElementById('paginacion-wrap').innerHTML = totalPags > 1 ? `
+    <div class="paginacion">
+      <button onclick="irPagina(${paginaActual-1})" ${paginaActual===1?'disabled':''}>← Anterior</button>
+      <span class="info-pag">Página ${paginaActual} de ${totalPags}</span>
+      <button onclick="irPagina(${paginaActual+1})" ${paginaActual===totalPags?'disabled':''}>Siguiente →</button>
+    </div>
+  ` : '';
+}
+
+function cardHtml(p, idx) {
+  const veh    = p._veh || {};
+  const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : null;
+  const img    = p.urlsImgs?.[0];
+  const ktype  = veh.ktype ? `<span class="extra-badge">ktype ${veh.ktype}</span>` : '';
+
+  return `
+    <div class="card" onclick="abrirDetalle(${idx})">
+      ${img
+        ? `<img class="card-img" src="${img}" alt="${p.descripcionArticulo||''}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : ''}
+      <div class="card-img-placeholder" ${img?'style="display:none"':''}>🔧</div>
+      <div class="card-body">
+        <div class="card-ref">REF ${p.refLocal||p.idLocal||'—'} ${ktype}</div>
+        <div class="card-titulo">${p.descripcionArticulo||'Sin descripción'}</div>
+        <div class="card-vehiculo">${veh.nombreMarca||''} ${veh.nombreModelo||''}</div>
+        ${precio
+          ? `<div class="card-precio">${precio}</div>`
+          : `<div class="card-precio sin-precio">Sin precio</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function abrirDetalle(idx) {
+  const inicio = (paginaActual - 1) * POR_PAGINA;
+  const p = piezasTodas[inicio + idx];
+  if (!p) return;
+
+  const veh    = p._veh || {};
+  const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : 'Sin precio';
+  const img    = p.urlsImgs?.[0];
+  const thumbs = (p.urlsImgs || []).slice(0, 8);
+
+  document.getElementById('detalle-wrap').style.display = 'block';
+  document.getElementById('detalle-wrap').innerHTML = `
+    <div class="detalle">
+      <div class="detalle-header">
+        <h3>${p.descripcionArticulo || 'Sin descripción'}</h3>
+        <button class="btn-cerrar" onclick="cerrarDetalle()">✕ Cerrar</button>
+      </div>
+      <div class="detalle-body">
+        <div class="detalle-fotos">
+          ${img
+            ? `<img class="foto-principal" id="foto-principal" src="${img}" alt="">`
+            : `<div class="sin-foto">📷</div>`}
+          ${thumbs.length > 1 ? `
+            <div class="fotos-thumb">
+              ${thumbs.map((u,i) => `<img src="${u}" class="${i===0?'activa':''}" onclick="cambiarFoto('${u}', this)">`).join('')}
+            </div>
+          ` : ''}
+        </div>
+        <div class="detalle-info">
+          <div class="detalle-precio">
+            ${precio}
+            <small>Precio Metasync (sin IVA) · x100 = ${p.precio || 0}</small>
+          </div>
+
+          <div class="seccion">
+            <div class="seccion-titulo">📋 Pieza</div>
+            ${dato('Referencia', p.refLocal || p.idLocal)}
+            ${dato('Artículo', p.codArticulo)}
+            ${dato('Descripción', p.descripcionArticulo)}
+            ${dato('Familia', p.codFamilia ? `${p.codFamilia} · ${p.descripcionFamilia||''}` : null)}
+            ${dato('Ref. principal', p.refPrincipal)}
+            ${dato('Ref. oficial', p.refOficial)}
+            ${dato('Año stock', p.anyoStock || null)}
+            ${dato('Peso', p.peso ? `${(p.peso/100).toFixed(1)} kg` : null)}
+            ${dato('Ubicación', p.ubicacion)}
+            ${dato('Tipo material', p.tipoMaterial)}
+            ${dato('Observaciones', p.observaciones)}
+          </div>
+
+          <div class="seccion">
+            <div class="seccion-titulo">🚗 Vehículo donante</div>
+            ${dato('Marca', veh.nombreMarca)}
+            ${dato('Modelo', veh.nombreModelo)}
+            ${dato('Versión', veh.nombreVersion)}
+            ${dato('Años', veh.anyoInicio ? `${veh.anyoInicio}–${veh.anyoFin||''}` : null)}
+            ${dato('Combustible', veh.combustible)}
+            ${dato('Puertas', veh.puertas)}
+            ${dato('Motor', veh.codigoMotor)}
+            ${dato('Cilindrada', veh.cilindrada ? `${veh.cilindrada} cc` : null)}
+            ${dato('Potencia', veh.potenciaKw ? `${veh.potenciaKw} kW / ${veh.potenciaHP} CV` : null)}
+            ${dato('Transmisión', veh.transmision)}
+            ${dato('Bastidor', veh.bastidor)}
+            ${dato('Matrícula', veh.matricula)}
+            ${dato('Color', veh.color)}
+            ${dato('Km', veh.kilometraje ? veh.kilometraje.toLocaleString('es-ES') + ' km' : null)}
+          </div>
+
+          <div class="seccion">
+            <div class="seccion-titulo">🔑 Datos TecDoc / Metasync</div>
+            ${datoTag('ktype', veh.ktype, 'tag-ktype')}
+            ${datoTag('codVersion', veh.codVersion, 'tag-codver')}
+            ${dato('rvCode', veh.rvCode)}
+            ${dato('ID local vehículo', p.idVehiculo)}
+            ${dato('Tipos de motor', Array.isArray(veh.tiposMotor) ? veh.tiposMotor.join(', ') : null)}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('detalle-wrap').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarDetalle() {
+  document.getElementById('detalle-wrap').style.display = 'none';
+  document.getElementById('detalle-wrap').innerHTML = '';
+}
+
+function cambiarFoto(url, el) {
+  document.getElementById('foto-principal').src = url;
+  document.querySelectorAll('.fotos-thumb img').forEach(i => i.classList.remove('activa'));
+  el.classList.add('activa');
+}
+
+function dato(label, valor) {
+  if (!valor && valor !== 0) return '';
+  return `<div class="dato-row"><span class="dato-label">${label}</span><span class="dato-valor">${valor}</span></div>`;
+}
+
+function datoTag(label, valor, cls) {
+  if (!valor) return '';
+  return `<div class="dato-row"><span class="dato-label">${label}</span><span class="dato-valor"><span class="${cls}">${valor}</span></span></div>`;
+}
+
+function irPagina(n) {
+  paginaActual = n;
+  renderResultados();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function mostrarCargando() {
+  document.getElementById('resultado').innerHTML = `
+    <div class="estado">
+      <div class="spinner"></div>
+      <p>Consultando API Metasync...</p>
+    </div>
+  `;
+  document.getElementById('paginacion-wrap').innerHTML = '';
+}
+
+function mostrarEstado(ico, msg) {
+  document.getElementById('resultado').innerHTML = `
+    <div class="estado"><div class="ico">${ico}</div><p>${msg}</p></div>
+  `;
+  document.getElementById('paginacion-wrap').innerHTML = '';
+}
+
+// Enter en buscador
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+document.getElementById('marca').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+document.getElementById('modelo').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+</script>
+</body>
+</html>
