@@ -187,11 +187,12 @@ function buscar() {
     const okMarca = !marca  || marc.includes(marca);
     const okMod   = !modelo || mod.includes(modelo);
     const okKtype = !ktype  || String(veh.ktype || '') === ktype;
-    // Sin filtros activos, solo mostrar piezas con foto
+    // Sin filtros activos, solo mostrar piezas con foto Y con precio
     const hayFiltro = q || marca || modelo || ktype;
-    const okFoto  = hayFiltro || (p.fotos && p.fotos.length > 0);
+    const okFoto   = hayFiltro || (p.fotos && p.fotos.length > 0);
+    const okPrecio = hayFiltro || (p.precio > 0);
 
-    if (okQ && okMarca && okMod && okKtype && okFoto) {
+    if (okQ && okMarca && okMod && okKtype && okFoto && okPrecio) {
       filtradas.push({ ...p, _veh: veh });
     }
   }
