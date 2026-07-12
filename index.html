@@ -236,7 +236,7 @@ function renderResultados() {
 
 function cardHtml(p, idx) {
   const veh    = p._veh || {};
-  const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : null;
+  const precio = p.precio > 0 ? p.precio.toFixed(2) + ' €' : null;
   const img    = p.fotos?.[0];
   const ktype  = veh.ktype ? `<span class="extra-badge">kType ${veh.ktype}</span>` : '';
 
@@ -247,9 +247,9 @@ function cardHtml(p, idx) {
         : ''}
       <div class="card-img-placeholder" ${img?'style="display:none"':''}>🔧</div>
       <div class="card-body">
-        <div class="card-ref">REF ${p.refLocal||p.idLocal||'—'} ${ktype}</div>
+        <div class="card-ref">REF ${p.id||'—'} ${ktype}</div>
         <div class="card-titulo">${p.articulo||'Sin descripción'}</div>
-        <div class="card-vehiculo">${veh.marca||''} ${veh.modelo||''}</div>
+        <div class="card-vehiculo">${veh.marca||''} ${veh.modelo ? veh.modelo + (veh.anioInicio ? ' · ' + veh.anioInicio + (veh.anioFin ? '–' + veh.anioFin : '') : '') : ''}</div>
         ${precio
           ? `<div class="card-precio">${precio}</div>`
           : `<div class="card-precio sin-precio">Sin precio</div>`}
