@@ -264,7 +264,7 @@ function abrirDetalle(idx) {
   if (!p) return;
 
   const veh    = p._veh || {};
-  const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : 'Sin precio';
+  const precio = p.precio > 0 ? p.precio.toFixed(2) + ' €' : 'Sin precio';
   const img    = p.fotos?.[0];
   const thumbs = (p.fotos || []).slice(0, 8);
 
@@ -289,7 +289,7 @@ function abrirDetalle(idx) {
         <div class="detalle-info">
           <div class="detalle-precio">
             ${precio}
-            <small>Precio Metasync (sin IVA) · x100 = ${p.precio || 0}</small>
+            <small>Precio Metasync (sin IVA)</small>
           </div>
 
           <div class="seccion">
