@@ -237,13 +237,13 @@ function renderResultados() {
 function cardHtml(p, idx) {
   const veh    = p._veh || {};
   const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : null;
-  const img    = p.urlsImgs?.[0];
+  const img    = p.fotos?.[0];
   const ktype  = veh.ktype ? `<span class="extra-badge">kType ${veh.ktype}</span>` : '';
 
   return `
     <div class="card" onclick="abrirDetalle(${idx})">
       ${img
-        ? `<img class="card-img" src="${img}" alt="${p.descripcionArticulo||''}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        ? `<img class="card-img" src="${img}" alt="${p.articulo||''}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
         : ''}
       <div class="card-img-placeholder" ${img?'style="display:none"':''}>🔧</div>
       <div class="card-body">
@@ -265,8 +265,8 @@ function abrirDetalle(idx) {
 
   const veh    = p._veh || {};
   const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : 'Sin precio';
-  const img    = p.urlsImgs?.[0];
-  const thumbs = (p.urlsImgs || []).slice(0, 8);
+  const img    = p.fotos?.[0];
+  const thumbs = (p.fotos || []).slice(0, 8);
 
   document.getElementById('detalle-wrap').style.display = 'block';
   document.getElementById('detalle-wrap').innerHTML = `
