@@ -161,6 +161,8 @@ async function init() {
   }
 }
 init();
+// Cargar piezas al entrar
+buscar();
 
 async function buscar(lastId = 0, acumular = false) {
   const q      = document.getElementById('q').value.trim().toLowerCase();
@@ -168,53 +170,41 @@ async function buscar(lastId = 0, acumular = false) {
   const modelo = document.getElementById('modelo').value.trim().toLowerCase();
   const ktype  = document.getElementById('ktype').value.trim();
 
-  if (!q && !marca && !modelo) {
-    mostrarEstado('⚠️', 'Introduce al menos un criterio de búsqueda.');
-    return;
-  }
-
   document.getElementById('btn-buscar').disabled = true;
   mostrarCargando();
 
   try {
-    // Traemos hasta 5 páginas de 1000 para tener datos suficientes
-    if (!acumular) piezasTodas = [];
-    let lastIdActual = 0;
-    let paginas = 0;
+    if (!acumular) { piezasTodas = []; window._lastIdApi = 0; }
+    const lastIdActual = window._lastIdApi || 0;
 
-    while (paginas < 5) {
-      const res = await fetch(`${BASE}?endpoint=RecuperarCambiosCanalEmpresa&fecha=${FECHA}&lastid=${String(lastIdActual)}&offset=1000`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const { piezas = [], vehiculos = [], result_set } = data;
+    const res = await fetch(`${BASE}?endpoint=RecuperarCambiosCanalEmpresa&fecha=${FECHA}&lastid=${String(lastIdActual)}&offset=200`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const { piezas = [], vehiculos = [], result_set } = data;
+    window._lastIdApi = result_set?.lastId || 0;
 
-      // Construir mapa de vehículos de esta página
-      const mapaVeh = {};
-      for (const v of vehiculos) {
-        const id = String(v.idLocal ?? v.codigo ?? '');
-        if (id) mapaVeh[id] = v;
+    // Mapa de vehículos
+    const mapaVeh = {};
+    for (const v of vehiculos) {
+      const id = String(v.idLocal ?? v.codigo ?? '');
+      if (id) mapaVeh[id] = v;
+    }
+
+    // Filtrar
+    for (const p of piezas) {
+      const desc = (p.descripcionArticulo || '').toLowerCase();
+      const veh  = mapaVeh[String(p.idVehiculo)] || {};
+      const marc = (veh.nombreMarca || '').toLowerCase();
+      const mod  = (veh.nombreModelo || '').toLowerCase();
+
+      const okQ     = !q      || desc.includes(q);
+      const okMarca = !marca  || marc.includes(marca);
+      const okMod   = !modelo || mod.includes(modelo);
+      const okKtype = !ktype  || (veh.ktype || '') === ktype;
+
+      if (okQ && okMarca && okMod && okKtype) {
+        piezasTodas.push({ ...p, _veh: veh });
       }
-
-      // Filtrar piezas por criterios
-      for (const p of piezas) {
-        const desc = (p.descripcionArticulo || '').toLowerCase();
-        const veh  = mapaVeh[String(p.idVehiculo)] || {};
-        const marc = (veh.nombreMarca || '').toLowerCase();
-        const mod  = (veh.nombreModelo || '').toLowerCase();
-
-        const okQ     = !q      || desc.includes(q);
-        const okMarca = !marca  || marc.includes(marca);
-        const okMod   = !modelo || mod.includes(modelo);
-        const okKtype = !ktype  || (veh.ktype || '') === ktype;
-
-        if (okQ && okMarca && okMod && okKtype) {
-          piezasTodas.push({ ...p, _veh: veh });
-        }
-      }
-
-      lastIdActual = result_set?.lastId || 0;
-      paginas++;
-      if (!result_set || result_set.count < 1000) break;
     }
 
     paginaActual = 1;
