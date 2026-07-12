@@ -142,7 +142,7 @@
 const API_KEY  = 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
 const EMPRESA  = '1225';
 const OFFSET   = 50; // fichas por página en la UI
-const BASE     = 'https://apis.metasync.com';
+const BASE     = 'https://www.reddesguace.com/api/metasync/inventario';
 
 let piezasTodas = [];
 let paginaActual = 1;
@@ -151,9 +151,7 @@ const POR_PAGINA = 20;
 // Cargar conteo inicial
 async function init() {
   try {
-    const res = await fetch(`${BASE}/Almacen/ConteoPiezasEmpresa`, {
-      headers: { apikey: API_KEY, idempresa: EMPRESA, fecha: '2000-01-01' }
-    });
+    const res = await fetch(`${BASE}?endpoint=ConteoPiezasEmpresa`);
     const total = await res.json();
     document.getElementById('stats-header').innerHTML = `Inventario: <strong>${total.toLocaleString('es-ES')}</strong> piezas`;
   } catch(e) {
