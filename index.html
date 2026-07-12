@@ -122,6 +122,7 @@
       <input type="text" id="q" placeholder="Artículo, referencia..." />
       <input type="text" id="marca" placeholder="Marca vehículo..." />
       <input type="text" id="modelo" placeholder="Modelo..." />
+      <input type="text" id="ktype" placeholder="kType..." style="max-width:110px" />
       <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
     </div>
   </div>
@@ -142,6 +143,7 @@
 const API_KEY  = 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
 const EMPRESA  = '1225';
 const OFFSET   = 50; // fichas por página en la UI
+const FECHA    = '2000-01-01';
 const BASE     = 'https://www.reddesguace.com/api/metasync/inventario';
 
 let piezasTodas = [];
@@ -164,6 +166,7 @@ async function buscar(lastId = 0, acumular = false) {
   const q      = document.getElementById('q').value.trim().toLowerCase();
   const marca  = document.getElementById('marca').value.trim().toLowerCase();
   const modelo = document.getElementById('modelo').value.trim().toLowerCase();
+  const ktype  = document.getElementById('ktype').value.trim();
 
   if (!q && !marca && !modelo) {
     mostrarEstado('⚠️', 'Introduce al menos un criterio de búsqueda.');
@@ -199,11 +202,12 @@ async function buscar(lastId = 0, acumular = false) {
         const marc = (veh.nombreMarca || '').toLowerCase();
         const mod  = (veh.nombreModelo || '').toLowerCase();
 
-        const okQ     = !q     || desc.includes(q);
-        const okMarca = !marca || marc.includes(marca);
-        const okMod   = !modelo|| mod.includes(modelo);
+        const okQ     = !q      || desc.includes(q);
+        const okMarca = !marca  || marc.includes(marca);
+        const okMod   = !modelo || mod.includes(modelo);
+        const okKtype = !ktype  || (veh.ktype || '') === ktype;
 
-        if (okQ && okMarca && okMod) {
+        if (okQ && okMarca && okMod && okKtype) {
           piezasTodas.push({ ...p, _veh: veh });
         }
       }
