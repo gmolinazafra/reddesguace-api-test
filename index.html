@@ -180,15 +180,7 @@ async function buscar(lastId = 0, acumular = false) {
     let paginas = 0;
 
     while (paginas < 5) {
-      const res = await fetch(`${BASE}/Almacen/RecuperarCambiosCanalEmpresa`, {
-        headers: {
-          apikey:    API_KEY,
-          fecha:     '2000-01-01',
-          lastid:    String(lastIdActual),
-          offset:    '1000',
-          idempresa: EMPRESA,
-        }
-      });
+      const res = await fetch(`${BASE}?endpoint=RecuperarCambiosCanalEmpresa&fecha=${FECHA}&lastid=${String(lastIdActual)}&offset=1000`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const { piezas = [], vehiculos = [], result_set } = data;
