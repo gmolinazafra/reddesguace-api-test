@@ -187,8 +187,11 @@ function buscar() {
     const okMarca = !marca  || marc.includes(marca);
     const okMod   = !modelo || mod.includes(modelo);
     const okKtype = !ktype  || String(veh.ktype || '') === ktype;
+    // Sin filtros activos, solo mostrar piezas con foto
+    const hayFiltro = q || marca || modelo || ktype;
+    const okFoto  = hayFiltro || (p.fotos && p.fotos.length > 0);
 
-    if (okQ && okMarca && okMod && okKtype) {
+    if (okQ && okMarca && okMod && okKtype && okFoto) {
       filtradas.push({ ...p, _veh: veh });
     }
   }
