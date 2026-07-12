@@ -144,77 +144,58 @@ const API_KEY  = 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
 const EMPRESA  = '1225';
 const OFFSET   = 50; // fichas por página en la UI
 const FECHA    = '2000-01-01';
-const BASE     = 'https://www.reddesguace.com/api/metasync/inventario';
-
 let piezasTodas = [];
+let inventarioCompleto = null;
 let paginaActual = 1;
 const POR_PAGINA = 20;
 
-// Cargar conteo inicial
+// Cargar inventario JSON estático al arrancar
 async function init() {
+  mostrarCargando();
   try {
-    const res = await fetch(`${BASE}?endpoint=ConteoPiezasEmpresa`);
-    const total = await res.json();
-    document.getElementById('stats-header').innerHTML = `Inventario: <strong>${total.toLocaleString('es-ES')}</strong> piezas`;
+    const res = await fetch('./inventario.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    inventarioCompleto = data;
+    document.getElementById('stats-header').innerHTML =
+      'Inventario: <strong>' + data.total.toLocaleString('es-ES') + '</strong> piezas';
+    buscar();
   } catch(e) {
-    document.getElementById('stats-header').textContent = 'API conectada';
+    mostrarEstado('❌', 'Error cargando inventario: ' + e.message);
   }
 }
 init();
-// Cargar piezas al entrar
-buscar();
 
-async function buscar(lastId = 0, acumular = false) {
+function buscar() {
+  if (!inventarioCompleto) return;
+
   const q      = document.getElementById('q').value.trim().toLowerCase();
   const marca  = document.getElementById('marca').value.trim().toLowerCase();
   const modelo = document.getElementById('modelo').value.trim().toLowerCase();
   const ktype  = document.getElementById('ktype').value.trim();
 
-  document.getElementById('btn-buscar').disabled = true;
-  mostrarCargando();
+  const { piezas = [], vehiculos = {} } = inventarioCompleto;
 
-  try {
-    if (!acumular) { piezasTodas = []; window._lastIdApi = 0; }
-    const lastIdActual = window._lastIdApi || 0;
+  const filtradas = [];
+  for (const p of piezas) {
+    const desc = (p.articulo || '').toLowerCase();
+    const veh  = vehiculos[String(p.idVehiculo)] || {};
+    const marc = (veh.marca || '').toLowerCase();
+    const mod  = (veh.modelo || '').toLowerCase();
 
-    const res = await fetch(`${BASE}?endpoint=RecuperarCambiosCanalEmpresa&fecha=${FECHA}&lastid=${String(lastIdActual)}&offset=200`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const { piezas = [], vehiculos = [], result_set } = data;
-    window._lastIdApi = result_set?.lastId || 0;
+    const okQ     = !q      || desc.includes(q);
+    const okMarca = !marca  || marc.includes(marca);
+    const okMod   = !modelo || mod.includes(modelo);
+    const okKtype = !ktype  || String(veh.ktype || '') === ktype;
 
-    // Mapa de vehículos
-    const mapaVeh = {};
-    for (const v of vehiculos) {
-      const id = String(v.idLocal ?? v.codigo ?? '');
-      if (id) mapaVeh[id] = v;
+    if (okQ && okMarca && okMod && okKtype) {
+      filtradas.push({ ...p, _veh: veh });
     }
-
-    // Filtrar
-    for (const p of piezas) {
-      const desc = (p.descripcionArticulo || '').toLowerCase();
-      const veh  = mapaVeh[String(p.idVehiculo)] || {};
-      const marc = (veh.nombreMarca || '').toLowerCase();
-      const mod  = (veh.nombreModelo || '').toLowerCase();
-
-      const okQ     = !q      || desc.includes(q);
-      const okMarca = !marca  || marc.includes(marca);
-      const okMod   = !modelo || mod.includes(modelo);
-      const okKtype = !ktype  || (veh.ktype || '') === ktype;
-
-      if (okQ && okMarca && okMod && okKtype) {
-        piezasTodas.push({ ...p, _veh: veh });
-      }
-    }
-
-    paginaActual = 1;
-    renderResultados();
-
-  } catch(e) {
-    mostrarEstado('❌', `Error: ${e.message}`);
   }
 
-  document.getElementById('btn-buscar').disabled = false;
+  piezasTodas = filtradas;
+  paginaActual = 1;
+  renderResultados();
 }
 
 function renderResultados() {
@@ -254,7 +235,7 @@ function cardHtml(p, idx) {
   const veh    = p._veh || {};
   const precio = p.precio > 0 ? (p.precio / 100).toFixed(2) + ' €' : null;
   const img    = p.urlsImgs?.[0];
-  const ktype  = veh.ktype ? `<span class="extra-badge">ktype ${veh.ktype}</span>` : '';
+  const ktype  = veh.ktype ? `<span class="extra-badge">kType ${veh.ktype}</span>` : '';
 
   return `
     <div class="card" onclick="abrirDetalle(${idx})">
@@ -264,8 +245,8 @@ function cardHtml(p, idx) {
       <div class="card-img-placeholder" ${img?'style="display:none"':''}>🔧</div>
       <div class="card-body">
         <div class="card-ref">REF ${p.refLocal||p.idLocal||'—'} ${ktype}</div>
-        <div class="card-titulo">${p.descripcionArticulo||'Sin descripción'}</div>
-        <div class="card-vehiculo">${veh.nombreMarca||''} ${veh.nombreModelo||''}</div>
+        <div class="card-titulo">${p.articulo||'Sin descripción'}</div>
+        <div class="card-vehiculo">${veh.marca||''} ${veh.modelo||''}</div>
         ${precio
           ? `<div class="card-precio">${precio}</div>`
           : `<div class="card-precio sin-precio">Sin precio</div>`}
@@ -288,7 +269,7 @@ function abrirDetalle(idx) {
   document.getElementById('detalle-wrap').innerHTML = `
     <div class="detalle">
       <div class="detalle-header">
-        <h3>${p.descripcionArticulo || 'Sin descripción'}</h3>
+        <h3>${p.articulo || 'Sin descripción'}</h3>
         <button class="btn-cerrar" onclick="cerrarDetalle()">✕ Cerrar</button>
       </div>
       <div class="detalle-body">
@@ -311,8 +292,8 @@ function abrirDetalle(idx) {
           <div class="seccion">
             <div class="seccion-titulo">📋 Pieza</div>
             ${dato('Referencia', p.refLocal || p.idLocal)}
-            ${dato('Artículo', p.codArticulo)}
-            ${dato('Descripción', p.descripcionArticulo)}
+            ${dato('Artículo', p.familia)}
+            ${dato('Descripción', p.articulo)}
             ${dato('Familia', p.codFamilia ? `${p.codFamilia} · ${p.descripcionFamilia||''}` : null)}
             ${dato('Ref. principal', p.refPrincipal)}
             ${dato('Ref. oficial', p.refOficial)}
@@ -325,13 +306,13 @@ function abrirDetalle(idx) {
 
           <div class="seccion">
             <div class="seccion-titulo">🚗 Vehículo donante</div>
-            ${dato('Marca', veh.nombreMarca)}
-            ${dato('Modelo', veh.nombreModelo)}
-            ${dato('Versión', veh.nombreVersion)}
+            ${dato('Marca', veh.marca)}
+            ${dato('Modelo', veh.modelo)}
+            ${dato('Versión', veh.version)}
             ${dato('Años', veh.anyoInicio ? `${veh.anyoInicio}–${veh.anyoFin||''}` : null)}
             ${dato('Combustible', veh.combustible)}
             ${dato('Puertas', veh.puertas)}
-            ${dato('Motor', veh.codigoMotor)}
+            ${dato('Motor', veh.codigoMotor || p.codigoMotor)}
             ${dato('Cilindrada', veh.cilindrada ? `${veh.cilindrada} cc` : null)}
             ${dato('Potencia', veh.potenciaKw ? `${veh.potenciaKw} kW / ${veh.potenciaHP} CV` : null)}
             ${dato('Transmisión', veh.transmision)}
