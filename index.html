@@ -319,6 +319,7 @@ function normalizarVehiculoAPI(v) {
     codVersion:   v.codVersion,
     rvCode:       v.rvCode,
     tiposMotor:   v.tiposMotor,
+    fotos:        v.urlsImgs || [],
   };
 }
 
@@ -573,7 +574,7 @@ function abrirDetalle(idx) {
             ${dato('Ref. principal', p.refPrincipal)}
             ${dato('Ref. oficial', p.refOficial)}
             ${dato('Año stock', p.anyoStock || null)}
-            ${dato('Peso', p.peso ? `${(p.peso/100).toFixed(1)} kg (dato bruto: ${p.peso})` : null)}
+            ${dato('Peso', p.peso ? `${(p.peso/1000).toFixed(2)} kg (dato bruto: ${p.peso} g)` : null)}
             ${dato('Ubicación', p.ubicacion)}
             ${dato('Tipo material', p.tipoMaterial)}
             ${dato('Observaciones', p.observaciones)}
@@ -735,9 +736,14 @@ function cardVehiculoHtml(v, idx) {
   const n     = cuentaPiezasVeh.get(String(v._id)) || 0;
   const ktype = v.ktype ? `<span class="extra-badge">kType ${v.ktype}</span>` : '';
 
+  const img = v.fotos?.[0];
+
   return `
     <div class="card" onclick="abrirDetalleVehiculo(${idx})">
-      <div class="card-img-placeholder" style="aspect-ratio:2.5/1;font-size:36px">🚗</div>
+      ${img
+        ? `<img class="card-img" style="aspect-ratio:2.5/1" src="${img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : ''}
+      <div class="card-img-placeholder" style="aspect-ratio:2.5/1;font-size:36px;${img?'display:none':''}">🚗</div>
       <div class="card-body">
         <div class="card-ref">ID ${v._id} ${ktype}</div>
         <div class="card-titulo">${v.marca || ''} ${v.modelo || ''}</div>
@@ -768,6 +774,16 @@ function abrirDetalleVehiculo(idx) {
         </div>
       </div>
       <div class="detalle-body">
+        <div class="detalle-fotos">
+          ${v.fotos?.[0]
+            ? `<img class="foto-principal" id="foto-principal" src="${v.fotos[0]}" alt="">`
+            : `<div class="sin-foto">🚗</div>`}
+          ${(v.fotos || []).length > 1 ? `
+            <div class="fotos-thumb">
+              ${v.fotos.slice(0, 8).map((u,i) => `<img src="${u}" class="${i===0?'activa':''}" onclick="cambiarFoto('${u}', this)">`).join('')}
+            </div>
+          ` : ''}
+        </div>
         <div class="detalle-info">
           <div class="seccion">
             <div class="seccion-titulo">🚗 Vehículo</div>
