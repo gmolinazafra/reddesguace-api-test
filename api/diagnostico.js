@@ -82,6 +82,13 @@ module.exports = async (req, res) => {
       pieza_keys: keysOf(piezas),
       vehiculo_keys: keysOf(vehiculos),
       vehiculos_con_fotos: vehConFotos.length,
+      vehiculos_cobertura: {
+        con_matricula: vehiculos.filter(v => v.matricula && String(v.matricula).trim()).length,
+        con_bastidor:  vehiculos.filter(v => v.bastidor && String(v.bastidor).trim()).length,
+        con_ktype:     vehiculos.filter(v => v.ktype).length,
+        con_matricula_y_ktype: vehiculos.filter(v => v.matricula && String(v.matricula).trim() && v.ktype).length,
+        con_codVersion: vehiculos.filter(v => v.codVersion).length,
+      },
       ejemplo_vehiculo: ejemploVeh,
       ejemplo_vehiculo_con_foto: ejemploVehConFoto,
       pesos: {

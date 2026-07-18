@@ -717,6 +717,7 @@ function renderVehiculos() {
     ${avisoJson}
     <p style="font-size:13px;color:var(--gris-3);margin-bottom:16px;">
       ${total.toLocaleString('es-ES')} vehículos encontrados · mostrando ${inicio+1}–${fin}
+      <button onclick="descargarCsvVehiculos()" style="background:var(--verde-med);color:white;border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:12px;">⬇ CSV matrícula → kType (${total.toLocaleString('es-ES')})</button>
     </p>
     <div class="grid">
       ${pagina.map((v, i) => cardVehiculoHtml(v, i)).join('')}
@@ -829,6 +830,26 @@ function abrirDetalleVehiculo(idx) {
     </div>
   `;
   document.getElementById('detalle-wrap').scrollIntoView({ behavior: 'smooth' });
+}
+
+function descargarCsvVehiculos() {
+  if (!vehiculosTodos.length) return;
+  const esc = (x) => {
+    const s = (x === null || x === undefined) ? '' : String(x);
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const cab = ['id_local','matricula','bastidor','ktype','codVersion','rvCode','marca','modelo','version','anyo','combustible'];
+  const filas = vehiculosTodos.map(v => [
+    v._id, v.matricula, v.bastidor, v.ktype, v.codVersion, v.rvCode,
+    v.marca, v.modelo, v.version, v.anyoVehiculo || v.anyoInicio || v.anioInicio, v.combustible,
+  ].map(esc).join(';'));
+  const csv  = cab.join(';') + '\n' + filas.join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'vehiculos_matricula_ktype_' + (modo === 'live' ? 'api' : 'json12jul') + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function verPiezasDeVehiculo(id) {
