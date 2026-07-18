@@ -710,7 +710,11 @@ function renderVehiculos() {
     return;
   }
 
+  const avisoJson = modo === 'json'
+    ? `<p style="font-size:12px;background:#FFF3CD;color:#7A5C00;border-radius:8px;padding:8px 12px;margin-bottom:12px;">ℹ️ La foto estática del 12-jul no incluye fotos de vehículos. Cámbiate a <strong>🔴 API en vivo</strong> y pulsa «Traer 1.000» para verlas.</p>`
+    : '';
   const html = `
+    ${avisoJson}
     <p style="font-size:13px;color:var(--gris-3);margin-bottom:16px;">
       ${total.toLocaleString('es-ES')} vehículos encontrados · mostrando ${inicio+1}–${fin}
     </p>
