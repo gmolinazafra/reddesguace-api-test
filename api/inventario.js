@@ -43,13 +43,10 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET')     { res.status(405).json({ error: 'Solo GET' }); return; }
 
-  const apikey    = process.env.METASYNC_APIKEY_REDIA;
-  const idempresa = process.env.METASYNC_IDEMPRESA_REDIA;
-
-  if (!apikey || !idempresa) {
-    res.status(500).json({ error: 'Faltan METASYNC_APIKEY_REDIA / METASYNC_IDEMPRESA_REDIA en las variables del proyecto Vercel del tester' });
-    return;
-  }
+  // Variables de entorno si existen; si no, fallback a la key de SOLO
+  // LECTURA (la misma que ya era publica en el HTML del tester).
+  const apikey    = process.env.METASYNC_APIKEY_REDIA    || 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
+  const idempresa = process.env.METASYNC_IDEMPRESA_REDIA || '1225';
 
   // lastid: entero >= 0
   const lastid = String(Math.max(0, parseInt(req.query.lastid || '0', 10) || 0));
