@@ -1,0 +1,3 @@
+# El JSON estático de 171k piezas solo lo sirve GitHub Pages;
+# el proyecto Vercel del tester es únicamente el proxy /api.
+inventario.json

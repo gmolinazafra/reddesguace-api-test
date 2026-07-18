@@ -43,6 +43,21 @@
   .btn-buscar:hover { opacity: 0.9; }
   .btn-buscar:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  /* SELECTOR DE FUENTE + BARRA LIVE */
+  .fuente-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+  .fuente-toggle button { border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.1); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .fuente-toggle button.activo { background: var(--naranja); border-color: var(--naranja); }
+  .live-bar { display: none; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .live-bar.visible { display: flex; }
+  .live-bar input { padding: 8px 12px; border: none; border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.15); color: white; outline: none; min-width: 180px; }
+  .live-bar input::placeholder { color: rgba(255,255,255,0.5); }
+  .btn-live { background: rgba(255,255,255,0.9); color: var(--verde); border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
+  .btn-live:hover { background: white; }
+  .btn-live:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-live.peligro { background: var(--naranja); color: white; }
+  .live-info { font-size: 12px; color: rgba(255,255,255,0.85); }
+  .live-info strong { color: white; }
+
   /* LAYOUT PRINCIPAL */
   .main { max-width: 900px; margin: 0 auto; padding: 24px; }
 
@@ -104,6 +119,7 @@
 
   /* EXTRA DATOS badge */
   .extra-badge { display: inline-block; background: #E8F5E9; color: var(--verde-med); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+  .badge-reservada { display: inline-block; background: #FFE3E3; color: #C92A2A; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -117,13 +133,25 @@
 
 <div class="buscador-wrap">
   <div class="buscador-inner">
-    <h2>🔍 Buscar en inventario Metasync (producción)</h2>
+    <div class="fuente-toggle">
+      <button id="btn-modo-json" class="activo" onclick="cambiarModo('json')">📦 JSON 12-jul</button>
+      <button id="btn-modo-live" onclick="cambiarModo('live')">🔴 API en vivo</button>
+    </div>
+    <h2 id="titulo-buscador">🔍 Buscar en inventario Metasync (foto estática del 12-jul)</h2>
     <div class="buscador-row">
       <input type="text" id="q" placeholder="Artículo, referencia..." />
       <input type="text" id="marca" placeholder="Marca vehículo..." />
       <input type="text" id="modelo" placeholder="Modelo..." />
       <input type="text" id="ktype" placeholder="kType..." style="max-width:110px" />
       <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
+    </div>
+    <div class="live-bar" id="live-bar">
+      <input type="text" id="live-fecha" value="01/01/2015 00:00:00" placeholder="dd/mm/yyyy HH:MM:SS" title="Fecha desde (cambios posteriores a esta fecha)" />
+      <button class="btn-live" id="btn-pagina" onclick="traerPagina()">Traer 1.000</button>
+      <button class="btn-live" id="btn-todo" onclick="traerTodo()">Traer TODO</button>
+      <button class="btn-live peligro" id="btn-detener" onclick="detenerCarga()" style="display:none">■ Detener</button>
+      <button class="btn-live" id="btn-reiniciar" onclick="reiniciarLive()">↺ Reiniciar</button>
+      <span class="live-info" id="live-info">Sin datos cargados. Pulsa «Traer 1.000».</span>
     </div>
   </div>
 </div>
@@ -133,32 +161,56 @@
   <div id="resultado">
     <div class="estado">
       <div class="ico">🔧</div>
-      <p>Introduce un término de búsqueda para explorar el inventario en tiempo real.</p>
+      <p>Introduce un término de búsqueda para explorar el inventario.</p>
     </div>
   </div>
   <div id="paginacion-wrap"></div>
 </div>
 
 <script>
-const API_KEY  = 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
-const EMPRESA  = '1225';
-const OFFSET   = 50; // fichas por página en la UI
-const FECHA    = '2000-01-01';
-let piezasTodas = [];
-let inventarioCompleto = null;
-let paginaActual = 1;
-const POR_PAGINA = 20;
+// ============================================================
+// CONFIG
+// ============================================================
+// Proxy: api/inventario.js de ESTE MISMO repo, desplegado como
+// proyecto Vercel propio (separado de la web real). Se prueban
+// en orden y se recuerda el primero que responda.
+const PROXY_URLS = [
+  '/api/inventario', // mismo origen (si se abre desde vercel.app)
+  'https://reddesguace-api-test.vercel.app/api/inventario',
+  'https://reddesguace-api-test-gmolinazafras-projects.vercel.app/api/inventario',
+];
+let proxyUrlOk = null;
 
-// Cargar inventario JSON estático al arrancar
+const OFFSET_API  = 1000;   // piezas por página de la API (igual que el sync)
+const POR_PAGINA  = 20;     // fichas por página en la UI
+
+// ============================================================
+// ESTADO
+// ============================================================
+let modo = 'json';               // 'json' | 'live'
+let inventarioCompleto = null;   // foto estática (inventario.json)
+
+let livePiezasMap  = new Map();  // refLocal → pieza normalizada (evita duplicados)
+let liveVehiculos  = {};         // idLocal(string) → vehículo normalizado
+let liveLastId     = 0;
+let liveTotal      = null;
+let liveFin        = false;
+let cargaCancelada = false;
+let cargandoTodo   = false;
+
+let piezasTodas  = [];
+let paginaActual = 1;
+
+// ============================================================
+// ARRANQUE (modo JSON estático, igual que siempre)
+// ============================================================
 async function init() {
   mostrarCargando();
   try {
     const res = await fetch('./inventario.json?v=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    inventarioCompleto = data;
-    document.getElementById('stats-header').innerHTML =
-      'Inventario: <strong>' + data.total.toLocaleString('es-ES') + '</strong> piezas';
+    inventarioCompleto = await res.json();
+    actualizarStats();
     buscar();
   } catch(e) {
     mostrarEstado('❌', 'Error cargando inventario: ' + e.message);
@@ -166,15 +218,215 @@ async function init() {
 }
 init();
 
+// ============================================================
+// FUENTE DE DATOS
+// ============================================================
+function datosActuales() {
+  if (modo === 'live') {
+    return { piezas: [...livePiezasMap.values()], vehiculos: liveVehiculos };
+  }
+  if (!inventarioCompleto) return null;
+  return {
+    piezas:    inventarioCompleto.piezas    || [],
+    vehiculos: inventarioCompleto.vehiculos || {},
+  };
+}
+
+function cambiarModo(m) {
+  modo = m;
+  document.getElementById('btn-modo-json').classList.toggle('activo', m === 'json');
+  document.getElementById('btn-modo-live').classList.toggle('activo', m === 'live');
+  document.getElementById('live-bar').classList.toggle('visible', m === 'live');
+  document.getElementById('titulo-buscador').textContent = m === 'live'
+    ? '🔍 Buscar en inventario Metasync (API EN VIVO vía proxy)'
+    : '🔍 Buscar en inventario Metasync (foto estática del 12-jul)';
+  cerrarDetalle();
+  actualizarStats();
+  buscar();
+}
+
+function actualizarStats() {
+  const el = document.getElementById('stats-header');
+  if (modo === 'live') {
+    const n = livePiezasMap.size;
+    el.innerHTML = 'API en vivo: <strong>' + n.toLocaleString('es-ES') + '</strong> piezas cargadas'
+      + (liveTotal !== null ? ' de <strong>' + liveTotal.toLocaleString('es-ES') + '</strong>' : '');
+  } else if (inventarioCompleto) {
+    el.innerHTML = 'Inventario 12-jul: <strong>' + inventarioCompleto.total.toLocaleString('es-ES') + '</strong> piezas';
+  } else {
+    el.textContent = 'Conectando...';
+  }
+}
+
+// ============================================================
+// API EN VIVO (vía proxy Vercel)
+// ============================================================
+function normalizarPiezaAPI(p) {
+  return {
+    id:                 p.refLocal,
+    refLocal:           p.refLocal,
+    idLocal:            p.idLocal,
+    articulo:           p.descripcionArticulo || '',
+    familia:            p.descripcionFamilia  || '',
+    codFamilia:         p.codFamilia,
+    descripcionFamilia: p.descripcionFamilia,
+    refPrincipal:       p.refPrincipal,
+    refOficial:         p.refOficial,
+    anyoStock:          p.anyoStock,
+    precio:             p.precio > 0 ? p.precio / 100 : 0,  // API en céntimos → euros
+    peso:               p.peso,                              // crudo: la ficha divide entre 100
+    ubicacion:          p.ubicacion,
+    tipoMaterial:       p.tipoMaterial,
+    observaciones:      p.observaciones,
+    idVehiculo:         p.idVehiculo,
+    fotos:              p.urlsImgs || [],
+    reserva:            p.reserva,
+    codigoMotor:        p.codigoMotor,
+    fechaMod:           p.fechaMod,
+  };
+}
+
+function normalizarVehiculoAPI(v) {
+  return {
+    marca:        v.nombreMarca   || '',
+    modelo:       v.nombreModelo  || '',
+    version:      v.nombreVersion || '',
+    anyoInicio:   v.anyoInicio,
+    anyoFin:      v.anyoFin,
+    anioInicio:   v.anyoInicio,   // la card usa anioInicio
+    anioFin:      v.anyoFin,
+    anyoVehiculo: v.anyoVehiculo,
+    combustible:  v.combustible,
+    puertas:      v.puertas,
+    codigoMotor:  v.codigoMotor,
+    cilindrada:   v.cilindrada,
+    potenciaKw:   v.potenciaKw,
+    potenciaHP:   v.potenciaHP,
+    transmision:  v.transmision,
+    bastidor:     v.bastidor,
+    matricula:    v.matricula,
+    color:        v.color,
+    kilometraje:  v.kilometraje,
+    ktype:        v.ktype,
+    codVersion:   v.codVersion,
+    rvCode:       v.rvCode,
+    tiposMotor:   v.tiposMotor,
+  };
+}
+
+async function llamarProxy(lastid, fecha) {
+  let ultimoErr = null;
+  const bases = proxyUrlOk ? [proxyUrlOk] : PROXY_URLS;
+  for (const base of bases) {
+    try {
+      const url = base + '?lastid=' + lastid + '&offset=' + OFFSET_API + '&fecha=' + encodeURIComponent(fecha);
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      proxyUrlOk = base;
+      return data;
+    } catch(e) {
+      ultimoErr = e;
+    }
+  }
+  throw ultimoErr || new Error('Proxy inaccesible');
+}
+
+function integrarRespuesta(data) {
+  const { piezas = [], vehiculos = [], result_set } = data;
+  for (const v of vehiculos) liveVehiculos[String(v.idLocal)] = normalizarVehiculoAPI(v);
+  for (const p of piezas)    livePiezasMap.set(String(p.refLocal), normalizarPiezaAPI(p));
+  if (result_set) {
+    liveTotal  = result_set.total;
+    liveLastId = result_set.lastId;
+    liveFin    = result_set.count === 0 || result_set.count < OFFSET_API;
+  }
+  return { count: result_set ? result_set.count : piezas.length };
+}
+
+function setBotonesLive(ocupado) {
+  document.getElementById('btn-pagina').disabled    = ocupado;
+  document.getElementById('btn-todo').disabled      = ocupado;
+  document.getElementById('btn-reiniciar').disabled = ocupado;
+}
+
+function infoLive(msg) {
+  document.getElementById('live-info').innerHTML = msg;
+}
+
+async function traerPagina() {
+  const fecha = document.getElementById('live-fecha').value.trim() || '01/01/2015 00:00:00';
+  setBotonesLive(true);
+  infoLive('⏳ Cargando página (lastId=' + liveLastId + ')...');
+  try {
+    const { count } = integrarRespuesta(await llamarProxy(liveLastId, fecha));
+    actualizarStats();
+    infoLive('✓ +' + count.toLocaleString('es-ES') + ' piezas · lastId=<strong>' + liveLastId + '</strong>'
+      + (liveFin ? ' · <strong>FIN</strong>' : ''));
+    buscar();
+  } catch(e) {
+    infoLive('❌ ' + e.message);
+    mostrarEstado('❌', 'Error llamando al proxy: ' + e.message);
+  } finally {
+    setBotonesLive(false);
+  }
+}
+
+async function traerTodo() {
+  if (cargandoTodo) return;
+  const fecha = document.getElementById('live-fecha').value.trim() || '01/01/2015 00:00:00';
+  cargandoTodo   = true;
+  cargaCancelada = false;
+  setBotonesLive(true);
+  document.getElementById('btn-detener').style.display = '';
+  try {
+    while (!liveFin && !cargaCancelada) {
+      infoLive('⏳ ' + livePiezasMap.size.toLocaleString('es-ES')
+        + (liveTotal !== null ? ' / ' + liveTotal.toLocaleString('es-ES') : '')
+        + ' piezas · lastId=' + liveLastId + '...');
+      integrarRespuesta(await llamarProxy(liveLastId, fecha));
+      actualizarStats();
+      await new Promise(r => setTimeout(r, 400)); // pausa entre páginas, como el sync
+    }
+    infoLive((cargaCancelada ? '⏸ Detenido en ' : '✓ Completo: ')
+      + livePiezasMap.size.toLocaleString('es-ES') + ' piezas · lastId=<strong>' + liveLastId + '</strong>');
+    buscar();
+  } catch(e) {
+    infoLive('❌ ' + e.message);
+    mostrarEstado('❌', 'Error llamando al proxy: ' + e.message);
+  } finally {
+    cargandoTodo = false;
+    document.getElementById('btn-detener').style.display = 'none';
+    setBotonesLive(false);
+  }
+}
+
+function detenerCarga() { cargaCancelada = true; }
+
+function reiniciarLive() {
+  livePiezasMap = new Map();
+  liveVehiculos = {};
+  liveLastId    = 0;
+  liveTotal     = null;
+  liveFin       = false;
+  actualizarStats();
+  infoLive('↺ Reiniciado. Sin datos cargados.');
+  buscar();
+}
+
+// ============================================================
+// BUSCADOR (común a ambas fuentes)
+// ============================================================
 function buscar() {
-  if (!inventarioCompleto) return;
+  const datos = datosActuales();
+  if (!datos) return;
 
   const q      = document.getElementById('q').value.trim().toLowerCase();
   const marca  = document.getElementById('marca').value.trim().toLowerCase();
   const modelo = document.getElementById('modelo').value.trim().toLowerCase();
   const ktype  = document.getElementById('ktype').value.trim();
 
-  const { piezas = [], vehiculos = {} } = inventarioCompleto;
+  const { piezas, vehiculos } = datos;
 
   const filtradas = [];
   for (const p of piezas) {
@@ -210,7 +462,11 @@ function renderResultados() {
   const totalPags = Math.ceil(total / POR_PAGINA);
 
   if (total === 0) {
-    mostrarEstado('🔍', 'Sin resultados. Prueba con otros términos.');
+    if (modo === 'live' && livePiezasMap.size === 0) {
+      mostrarEstado('📡', 'Modo API en vivo: pulsa «Traer 1.000» para cargar la primera página del inventario real.');
+    } else {
+      mostrarEstado('🔍', 'Sin resultados. Prueba con otros términos.');
+    }
     document.getElementById('paginacion-wrap').innerHTML = '';
     return;
   }
@@ -240,6 +496,7 @@ function cardHtml(p, idx) {
   const precio = p.precio > 0 ? p.precio.toFixed(2) + ' €' : null;
   const img    = p.fotos?.[0];
   const ktype  = veh.ktype ? `<span class="extra-badge">kType ${veh.ktype}</span>` : '';
+  const resv   = p.reserva > 0 ? `<span class="badge-reservada">RESERVADA</span>` : '';
 
   return `
     <div class="card" onclick="abrirDetalle(${idx})">
@@ -248,7 +505,7 @@ function cardHtml(p, idx) {
         : ''}
       <div class="card-img-placeholder" ${img?'style="display:none"':''}>🔧</div>
       <div class="card-body">
-        <div class="card-ref">REF ${p.id||'—'} ${ktype}</div>
+        <div class="card-ref">REF ${p.id||'—'} ${ktype}${resv}</div>
         <div class="card-titulo">${p.articulo||'Sin descripción'}</div>
         <div class="card-vehiculo">${veh.marca||''} ${veh.modelo ? veh.modelo + (veh.anioInicio ? ' · ' + veh.anioInicio + (veh.anioFin ? '–' + veh.anioFin : '') : '') : ''}</div>
         ${precio
@@ -306,6 +563,8 @@ function abrirDetalle(idx) {
             ${dato('Ubicación', p.ubicacion)}
             ${dato('Tipo material', p.tipoMaterial)}
             ${dato('Observaciones', p.observaciones)}
+            ${dato('Reserva', p.reserva)}
+            ${dato('Fecha mod.', p.fechaMod)}
           </div>
 
           <div class="seccion">
@@ -372,7 +631,7 @@ function mostrarCargando() {
   document.getElementById('resultado').innerHTML = `
     <div class="estado">
       <div class="spinner"></div>
-      <p>Consultando API Metasync...</p>
+      <p>Consultando inventario...</p>
     </div>
   `;
   document.getElementById('paginacion-wrap').innerHTML = '';
@@ -389,6 +648,7 @@ function mostrarEstado(ico, msg) {
 document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
 document.getElementById('marca').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
 document.getElementById('modelo').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+document.getElementById('ktype').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
 </script>
 </body>
 </html>
