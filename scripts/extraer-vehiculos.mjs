@@ -72,7 +72,7 @@ for (;;) {
 }
 
 // ── CSV ──
-const cab = ['id_local','matricula','bastidor','ktype','codVersion','rvCode','marca','modelo','version','anyo','combustible','estado','fotos'];
+const cab = ['id_local','matricula','bastidor','ktype','codVersion','rvCode','marca','modelo','version','anyo','combustible','estado','fotos','codigoMotor','codigoCambio','cilindrada','potenciaHP','potenciaKw','transmision','puertas','color','kilometraje','anyoInicio','anyoFin','alimentacion','numMarchas','tiposMotor'];
 const filas = [...vehiculos.values()].map(v => [
   v.idLocal,
   v.matricula,
@@ -87,6 +87,20 @@ const filas = [...vehiculos.values()].map(v => [
   v.combustible,
   v.estado,
   (v.urlsImgs || []).length,
+  v.codigoMotor,
+  v.codigoCambio,
+  v.cilindrada,
+  v.potenciaHP,
+  v.potenciaKw,
+  v.transmision,
+  v.puertas,
+  v.color,
+  v.kilometraje,
+  v.anyoInicio,
+  v.anyoFin,
+  v.alimentacion,
+  v.numMarchas,
+  Array.isArray(v.tiposMotor) ? v.tiposMotor.join('|') : v.tiposMotor,
 ].map(esc).join(';'));
 writeFileSync('vehiculos_matricula_ktype.csv', '﻿' + cab.join(';') + '\n' + filas.join('\n'));
 
