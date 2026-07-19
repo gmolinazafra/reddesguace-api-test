@@ -40,6 +40,7 @@ function esc(x) {
 }
 
 const vehiculos = new Map(); // idLocal → objeto
+const piezaVeh  = [];        // pares refLocal;idVehiculo (puente pieza→vehículo)
 let lastId = 0, pagina = 0, totPiezas = 0, totalAPI = null;
 
 const t0 = Date.now();
@@ -58,6 +59,7 @@ for (;;) {
   if (totalAPI === null && result_set) totalAPI = result_set.total;
 
   for (const v of vehs) vehiculos.set(String(v.idLocal), v);
+  for (const p of piezas) piezaVeh.push(`${p.refLocal};${p.idVehiculo}`);
   totPiezas += piezas.length;
 
   if (pagina % 10 === 0) {
@@ -87,6 +89,9 @@ const filas = [...vehiculos.values()].map(v => [
   (v.urlsImgs || []).length,
 ].map(esc).join(';'));
 writeFileSync('vehiculos_matricula_ktype.csv', '﻿' + cab.join(';') + '\n' + filas.join('\n'));
+
+// ── Puente pieza→vehículo ──
+writeFileSync('piezas_vehiculo.csv', 'refLocal;idVehiculo\n' + piezaVeh.join('\n'));
 
 // ── Resumen ──
 const lista = [...vehiculos.values()];
