@@ -134,9 +134,6 @@
 <div class="buscador-wrap">
   <div class="buscador-inner">
     <div class="fuente-toggle">
-      <button id="btn-vista-piezas" class="activo" onclick="cambiarVista('piezas')">🔧 Piezas</button>
-      <button id="btn-vista-vehiculos" onclick="cambiarVista('vehiculos')">🚗 Vehículos</button>
-      <span style="flex:1"></span>
       <button id="btn-modo-json" class="activo" onclick="cambiarModo('json')">📦 JSON 12-jul</button>
       <button id="btn-modo-live" onclick="cambiarModo('live')">🔴 API en vivo</button>
     </div>
@@ -190,13 +187,8 @@ const POR_PAGINA  = 20;     // fichas por página en la UI
 // ============================================================
 // ESTADO
 // ============================================================
-let modo  = 'json';              // 'json' | 'live'
-let vista = 'piezas';            // 'piezas' | 'vehiculos'
+let modo = 'json';               // 'json' | 'live'
 let inventarioCompleto = null;   // foto estática (inventario.json)
-
-let vehiculosTodos   = [];       // resultado de búsqueda de vehículos
-let cuentaPiezasVeh  = new Map();// idVehiculo → nº piezas en la fuente actual
-let filtroVehiculoId = null;     // filtro "solo piezas de este vehículo"
 
 let livePiezasMap  = new Map();  // refLocal → pieza normalizada (evita duplicados)
 let liveVehiculos  = {};         // idLocal(string) → vehículo normalizado
@@ -319,7 +311,6 @@ function normalizarVehiculoAPI(v) {
     codVersion:   v.codVersion,
     rvCode:       v.rvCode,
     tiposMotor:   v.tiposMotor,
-    fotos:        v.urlsImgs || [],
   };
 }
 
@@ -430,8 +421,6 @@ function buscar() {
   const datos = datosActuales();
   if (!datos) return;
 
-  if (vista === 'vehiculos') { buscarVehiculos(datos); return; }
-
   const q      = document.getElementById('q').value.trim().toLowerCase();
   const marca  = document.getElementById('marca').value.trim().toLowerCase();
   const modelo = document.getElementById('modelo').value.trim().toLowerCase();
@@ -450,13 +439,12 @@ function buscar() {
     const okMarca = !marca  || marc.includes(marca);
     const okMod   = !modelo || mod.includes(modelo);
     const okKtype = !ktype  || String(veh.ktype || '') === ktype;
-    const okVeh   = !filtroVehiculoId || String(p.idVehiculo) === filtroVehiculoId;
     // Sin filtros activos, solo mostrar piezas con foto Y con precio
-    const hayFiltro = q || marca || modelo || ktype || filtroVehiculoId;
+    const hayFiltro = q || marca || modelo || ktype;
     const okFoto   = hayFiltro || (p.fotos && p.fotos.length > 0);
     const okPrecio = hayFiltro || (p.precio > 0);
 
-    if (okQ && okMarca && okMod && okKtype && okVeh && okFoto && okPrecio) {
+    if (okQ && okMarca && okMod && okKtype && okFoto && okPrecio) {
       filtradas.push({ ...p, _veh: veh });
     }
   }
@@ -483,12 +471,9 @@ function renderResultados() {
     return;
   }
 
-  const chipVeh = filtroVehiculoId
-    ? `<button onclick="quitarFiltroVehiculo()" style="background:var(--naranja);color:white;border:none;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:8px;">✕ solo vehículo ${filtroVehiculoId}</button>`
-    : '';
   const html = `
     <p style="font-size:13px;color:var(--gris-3);margin-bottom:16px;">
-      ${chipVeh}${total.toLocaleString('es-ES')} piezas encontradas · mostrando ${inicio+1}–${fin}
+      ${total.toLocaleString('es-ES')} piezas encontradas · mostrando ${inicio+1}–${fin}
     </p>
     <div class="grid">
       ${pagina.map((p, i) => cardHtml(p, inicio + i)).join('')}
@@ -574,7 +559,7 @@ function abrirDetalle(idx) {
             ${dato('Ref. principal', p.refPrincipal)}
             ${dato('Ref. oficial', p.refOficial)}
             ${dato('Año stock', p.anyoStock || null)}
-            ${dato('Peso', p.peso ? `${(p.peso/1000).toFixed(2)} kg (dato bruto: ${p.peso} g)` : null)}
+            ${dato('Peso', p.peso ? `${(p.peso/100).toFixed(1)} kg` : null)}
             ${dato('Ubicación', p.ubicacion)}
             ${dato('Tipo material', p.tipoMaterial)}
             ${dato('Observaciones', p.observaciones)}
@@ -638,228 +623,8 @@ function datoTag(label, valor, cls) {
 
 function irPagina(n) {
   paginaActual = n;
-  renderActual();
+  renderResultados();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function renderActual() {
-  if (vista === 'vehiculos') renderVehiculos();
-  else renderResultados();
-}
-
-// ============================================================
-// PESTAÑA VEHÍCULOS
-// ============================================================
-function cambiarVista(v) {
-  vista = v;
-  document.getElementById('btn-vista-piezas').classList.toggle('activo', v === 'piezas');
-  document.getElementById('btn-vista-vehiculos').classList.toggle('activo', v === 'vehiculos');
-  document.getElementById('q').placeholder = v === 'vehiculos'
-    ? 'Marca, modelo, versión, bastidor...'
-    : 'Artículo, referencia...';
-  cerrarDetalle();
-  paginaActual = 1;
-  buscar();
-}
-
-function buscarVehiculos(datos) {
-  const q      = document.getElementById('q').value.trim().toLowerCase();
-  const marca  = document.getElementById('marca').value.trim().toLowerCase();
-  const modelo = document.getElementById('modelo').value.trim().toLowerCase();
-  const ktype  = document.getElementById('ktype').value.trim();
-
-  // nº de piezas por vehículo en la fuente actual (para cards y ficha)
-  cuentaPiezasVeh = new Map();
-  for (const p of datos.piezas) {
-    const k = String(p.idVehiculo);
-    cuentaPiezasVeh.set(k, (cuentaPiezasVeh.get(k) || 0) + 1);
-  }
-
-  const lista = [];
-  for (const [id, v] of Object.entries(datos.vehiculos)) {
-    const marc  = (v.marca || '').toLowerCase();
-    const mod   = (v.modelo || '').toLowerCase();
-    const texto = (marc + ' ' + mod + ' ' + (v.version || '') + ' ' + (v.bastidor || '') + ' ' + (v.matricula || '') + ' ' + (v.codigoMotor || '')).toLowerCase();
-
-    const okQ     = !q      || texto.includes(q);
-    const okMarca = !marca  || marc.includes(marca);
-    const okMod   = !modelo || mod.includes(modelo);
-    const okKtype = !ktype  || String(v.ktype || '') === ktype;
-
-    if (okQ && okMarca && okMod && okKtype) lista.push({ _id: id, ...v });
-  }
-
-  vehiculosTodos = lista;
-  renderVehiculos();
-}
-
-function renderVehiculos() {
-  const total  = vehiculosTodos.length;
-  const inicio = (paginaActual - 1) * POR_PAGINA;
-  const fin    = Math.min(inicio + POR_PAGINA, total);
-  const pagina = vehiculosTodos.slice(inicio, fin);
-  const totalPags = Math.ceil(total / POR_PAGINA);
-
-  if (total === 0) {
-    if (modo === 'live' && Object.keys(liveVehiculos).length === 0) {
-      mostrarEstado('📡', 'Modo API en vivo: pulsa «Traer 1.000» para cargar datos reales (las piezas traen consigo sus vehículos donantes).');
-    } else {
-      mostrarEstado('🚗', 'Sin vehículos que coincidan. Prueba con otros términos.');
-    }
-    document.getElementById('paginacion-wrap').innerHTML = '';
-    return;
-  }
-
-  const avisoJson = modo === 'json'
-    ? `<p style="font-size:12px;background:#FFF3CD;color:#7A5C00;border-radius:8px;padding:8px 12px;margin-bottom:12px;">ℹ️ La foto estática del 12-jul no incluye fotos de vehículos. Cámbiate a <strong>🔴 API en vivo</strong> y pulsa «Traer 1.000» para verlas.</p>`
-    : '';
-  const html = `
-    ${avisoJson}
-    <p style="font-size:13px;color:var(--gris-3);margin-bottom:16px;">
-      ${total.toLocaleString('es-ES')} vehículos encontrados · mostrando ${inicio+1}–${fin}
-      <button onclick="descargarCsvVehiculos()" style="background:var(--verde-med);color:white;border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:12px;">⬇ CSV matrícula → kType (${total.toLocaleString('es-ES')})</button>
-    </p>
-    <div class="grid">
-      ${pagina.map((v, i) => cardVehiculoHtml(v, i)).join('')}
-    </div>
-  `;
-  document.getElementById('resultado').innerHTML = html;
-
-  document.getElementById('paginacion-wrap').innerHTML = totalPags > 1 ? `
-    <div class="paginacion">
-      <button onclick="irPagina(${paginaActual-1})" ${paginaActual===1?'disabled':''}>← Anterior</button>
-      <span class="info-pag">Página ${paginaActual} de ${totalPags}</span>
-      <button onclick="irPagina(${paginaActual+1})" ${paginaActual===totalPags?'disabled':''}>Siguiente →</button>
-    </div>
-  ` : '';
-}
-
-function cardVehiculoHtml(v, idx) {
-  const ini   = v.anyoInicio || v.anioInicio;
-  const fin   = v.anyoFin    || v.anioFin;
-  const anios = ini ? `${ini}–${fin || ''}` : '';
-  const n     = cuentaPiezasVeh.get(String(v._id)) || 0;
-  const ktype = v.ktype ? `<span class="extra-badge">kType ${v.ktype}</span>` : '';
-
-  const img = v.fotos?.[0];
-
-  return `
-    <div class="card" onclick="abrirDetalleVehiculo(${idx})">
-      ${img
-        ? `<img class="card-img" style="aspect-ratio:2.5/1" src="${img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : ''}
-      <div class="card-img-placeholder" style="aspect-ratio:2.5/1;font-size:36px;${img?'display:none':''}">🚗</div>
-      <div class="card-body">
-        <div class="card-ref">ID ${v._id} ${ktype}</div>
-        <div class="card-titulo">${v.marca || ''} ${v.modelo || ''}</div>
-        <div class="card-vehiculo">${v.version || ''}${anios ? ' · ' + anios : ''}</div>
-        <div class="card-vehiculo">${v.combustible || ''}${v.codigoMotor ? ' · ' + v.codigoMotor : ''}</div>
-        <div class="card-precio" style="font-size:13px">${n.toLocaleString('es-ES')} piezas</div>
-      </div>
-    </div>
-  `;
-}
-
-function abrirDetalleVehiculo(idx) {
-  const v = vehiculosTodos[(paginaActual - 1) * POR_PAGINA + idx];
-  if (!v) return;
-
-  const n = cuentaPiezasVeh.get(String(v._id)) || 0;
-  const ini = v.anyoInicio || v.anioInicio;
-  const fin = v.anyoFin    || v.anioFin;
-
-  document.getElementById('detalle-wrap').style.display = 'block';
-  document.getElementById('detalle-wrap').innerHTML = `
-    <div class="detalle">
-      <div class="detalle-header">
-        <h3>🚗 ${v.marca || ''} ${v.modelo || ''} ${v.version || ''}</h3>
-        <div style="display:flex;gap:8px">
-          <button class="btn-cerrar" style="background:var(--naranja)" onclick="verPiezasDeVehiculo('${v._id}')">🔧 Ver sus ${n.toLocaleString('es-ES')} piezas</button>
-          <button class="btn-cerrar" onclick="cerrarDetalle()">✕ Cerrar</button>
-        </div>
-      </div>
-      <div class="detalle-body">
-        <div class="detalle-fotos">
-          ${v.fotos?.[0]
-            ? `<img class="foto-principal" id="foto-principal" src="${v.fotos[0]}" alt="">`
-            : `<div class="sin-foto">🚗</div>`}
-          ${(v.fotos || []).length > 1 ? `
-            <div class="fotos-thumb">
-              ${v.fotos.slice(0, 8).map((u,i) => `<img src="${u}" class="${i===0?'activa':''}" onclick="cambiarFoto('${u}', this)">`).join('')}
-            </div>
-          ` : ''}
-        </div>
-        <div class="detalle-info">
-          <div class="seccion">
-            <div class="seccion-titulo">🚗 Vehículo</div>
-            ${dato('ID local', v._id)}
-            ${dato('Marca', v.marca)}
-            ${dato('Modelo', v.modelo)}
-            ${dato('Versión', v.version)}
-            ${dato('Año vehículo', v.anyoVehiculo)}
-            ${dato('Años versión', ini ? `${ini}–${fin || ''}` : null)}
-            ${dato('Combustible', v.combustible)}
-            ${dato('Puertas', v.puertas)}
-            ${dato('Color', v.color)}
-            ${dato('Km', v.kilometraje ? v.kilometraje.toLocaleString('es-ES') + ' km' : null)}
-            ${dato('Matrícula', v.matricula)}
-            ${dato('Bastidor', v.bastidor)}
-          </div>
-          <div class="seccion">
-            <div class="seccion-titulo">⚙️ Mecánica</div>
-            ${dato('Motor', v.codigoMotor)}
-            ${dato('Cilindrada', v.cilindrada ? `${v.cilindrada} cc` : null)}
-            ${dato('Potencia', v.potenciaKw ? `${v.potenciaKw} kW / ${v.potenciaHP} CV` : null)}
-            ${dato('Transmisión', v.transmision)}
-          </div>
-        </div>
-        <div class="detalle-info">
-          <div class="seccion">
-            <div class="seccion-titulo">🔑 Datos TecDoc / Metasync</div>
-            ${datoTag('ktype', v.ktype, 'tag-ktype')}
-            ${datoTag('codVersion', v.codVersion, 'tag-codver')}
-            ${dato('rvCode', v.rvCode)}
-            ${dato('Tipos de motor', Array.isArray(v.tiposMotor) ? v.tiposMotor.join(', ') : null)}
-          </div>
-          <div class="seccion">
-            <div class="seccion-titulo">📦 Stock</div>
-            ${dato('Piezas en la fuente actual', n.toLocaleString('es-ES'))}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  document.getElementById('detalle-wrap').scrollIntoView({ behavior: 'smooth' });
-}
-
-function descargarCsvVehiculos() {
-  if (!vehiculosTodos.length) return;
-  const esc = (x) => {
-    const s = (x === null || x === undefined) ? '' : String(x);
-    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  };
-  const cab = ['id_local','matricula','bastidor','ktype','codVersion','rvCode','marca','modelo','version','anyo','combustible'];
-  const filas = vehiculosTodos.map(v => [
-    v._id, v.matricula, v.bastidor, v.ktype, v.codVersion, v.rvCode,
-    v.marca, v.modelo, v.version, v.anyoVehiculo || v.anyoInicio || v.anioInicio, v.combustible,
-  ].map(esc).join(';'));
-  const csv  = cab.join(';') + '\n' + filas.join('\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = 'vehiculos_matricula_ktype_' + (modo === 'live' ? 'api' : 'json12jul') + '.csv';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function verPiezasDeVehiculo(id) {
-  filtroVehiculoId = String(id);
-  cambiarVista('piezas');
-}
-
-function quitarFiltroVehiculo() {
-  filtroVehiculoId = null;
-  buscar();
 }
 
 function mostrarCargando() {
