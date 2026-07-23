@@ -38,15 +38,21 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Max-Age', '86400');
-  res.setHeader('Cache-Control', 'no-store');
+  // 2026-07-23: cache CDN de Vercel por combinacion de query (lastid+offset+fecha).
+  // Cada "Traer TODO" son ~175 invocaciones; con cache, las repeticiones del
+  // dia salen del edge a coste cero. 6h de frescura es de sobra para un tester.
+  res.setHeader('Cache-Control', 'public, s-maxage=21600, stale-while-revalidate=86400');
 
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET')     { res.status(405).json({ error: 'Solo GET' }); return; }
 
-  // Variables de entorno si existen; si no, fallback a la key de SOLO
-  // LECTURA (la misma que ya era publica en el HTML del tester).
-  const apikey    = process.env.METASYNC_APIKEY_REDIA    || 'MS-Q17aFd9zFsNW7pDB1XKYjB6YNZmclhXS7';
-  const idempresa = process.env.METASYNC_IDEMPRESA_REDIA || '1225';
+  const apikey    = process.env.METASYNC_APIKEY_REDIA;
+  const idempresa = process.env.METASYNC_IDEMPRESA_REDIA;
+
+  if (!apikey || !idempresa) {
+    res.status(500).json({ error: 'Faltan METASYNC_APIKEY_REDIA / METASYNC_IDEMPRESA_REDIA en las variables del proyecto Vercel del tester' });
+    return;
+  }
 
   // lastid: entero >= 0
   const lastid = String(Math.max(0, parseInt(req.query.lastid || '0', 10) || 0));
