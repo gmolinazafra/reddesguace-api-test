@@ -184,6 +184,18 @@ let proxyUrlOk = null;
 const OFFSET_API  = 1000;   // piezas por página de la API (igual que el sync)
 const POR_PAGINA  = 20;     // fichas por página en la UI
 
+// Enum Ubicacion de la API Metasync (manual ApiInventario, 23-jul).
+// Las ubicaciones 2 (ConIncidencia), 5 (Desechada) y 8 (Vendida) se
+// GUARDAN en el mapa (mina futura de ktypes y precios) pero NO se
+// pintan en la parrilla; el contador de la barra live las desglosa.
+const UBICACION_NOMBRE = {
+  0: 'En proceso de desmontaje', 1: 'Almacenada', 2: 'Con incidencia',
+  3: 'En reparto', 4: 'En control de calidad', 5: 'Desechada',
+  6: 'En mostrador', 7: 'Montada revisada', 8: 'Vendida',
+  9: 'Situación desconocida',
+};
+const UBICACIONES_OCULTAS = new Set([2, 5, 8]);
+
 // ============================================================
 // ESTADO
 // ============================================================
@@ -200,6 +212,7 @@ let cargandoTodo   = false;
 
 let piezasTodas  = [];
 let paginaActual = 1;
+let ultimasOcultasUbicacion = 0;
 
 // ============================================================
 // ARRANQUE (modo JSON estático, igual que siempre)
@@ -250,7 +263,10 @@ function actualizarStats() {
   if (modo === 'live') {
     const n = livePiezasMap.size;
     el.innerHTML = 'API en vivo: <strong>' + n.toLocaleString('es-ES') + '</strong> piezas cargadas'
-      + (liveTotal !== null ? ' de <strong>' + liveTotal.toLocaleString('es-ES') + '</strong>' : '');
+      + (liveTotal !== null ? ' de <strong>' + liveTotal.toLocaleString('es-ES') + '</strong>' : '')
+      + (ultimasOcultasUbicacion > 0
+        ? ' · ' + ultimasOcultasUbicacion.toLocaleString('es-ES') + ' vendidas/baja ocultas'
+        : '');
   } else if (inventarioCompleto) {
     el.innerHTML = 'Inventario 12-jul: <strong>' + inventarioCompleto.total.toLocaleString('es-ES') + '</strong> piezas';
   } else {
@@ -274,7 +290,8 @@ function normalizarPiezaAPI(p) {
     refOficial:         p.refOficial,
     anyoStock:          p.anyoStock,
     precio:             p.precio > 0 ? p.precio / 100 : 0,  // API en céntimos → euros
-    peso:               p.peso,                              // crudo: la ficha divide entre 100
+    peso:               p.peso,
+    pesoKg:             p.peso > 0 ? p.peso / 1000 : null,   // manual: peso en GRAMOS
     ubicacion:          p.ubicacion,
     tipoMaterial:       p.tipoMaterial,
     observaciones:      p.observaciones,
@@ -429,7 +446,13 @@ function buscar() {
   const { piezas, vehiculos } = datos;
 
   const filtradas = [];
+  let ocultasUbicacion = 0;
   for (const p of piezas) {
+    // Vendidas / desechadas / con incidencia: guardadas pero no visibles.
+    if (modo === 'live' && UBICACIONES_OCULTAS.has(Number(p.ubicacion))) {
+      ocultasUbicacion++;
+      continue;
+    }
     const desc = (p.articulo || '').toLowerCase();
     const veh  = vehiculos[String(p.idVehiculo)] || {};
     const marc = (veh.marca || '').toLowerCase();
@@ -453,6 +476,7 @@ function buscar() {
   }
 
   piezasTodas = filtradas;
+  ultimasOcultasUbicacion = ocultasUbicacion;
   paginaActual = 1;
   renderResultados();
 }
@@ -562,8 +586,10 @@ function abrirDetalle(idx) {
             ${dato('Ref. principal', p.refPrincipal)}
             ${dato('Ref. oficial', p.refOficial)}
             ${dato('Año stock', p.anyoStock || null)}
-            ${dato('Peso', p.peso ? `${(p.peso/100).toFixed(1)} kg` : null)}
-            ${dato('Ubicación', p.ubicacion)}
+            ${dato('Peso', p.pesoKg != null ? `${p.pesoKg.toFixed(1)} kg` : (p.peso ? `${(p.peso/100).toFixed(1)} kg` : null))}
+            ${dato('Ubicación', p.ubicacion != null && UBICACION_NOMBRE[p.ubicacion] !== undefined
+              ? `${UBICACION_NOMBRE[p.ubicacion]} (${p.ubicacion})`
+              : p.ubicacion)}
             ${dato('Tipo material', p.tipoMaterial)}
             ${dato('Observaciones', p.observaciones)}
             ${dato('Reserva', p.reserva)}
