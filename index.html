@@ -143,6 +143,11 @@
       <input type="text" id="marca" placeholder="Marca vehículo..." />
       <input type="text" id="modelo" placeholder="Modelo..." />
       <input type="text" id="ktype" placeholder="kType..." style="max-width:110px" />
+      <select id="filtro-precio" onchange="buscar()" style="max-width:150px">
+        <option value="">Precio: todas</option>
+        <option value="con">Con precio</option>
+        <option value="sin">Sin precio</option>
+      </select>
       <button class="btn-buscar" id="btn-buscar" onclick="buscar()">Buscar</button>
     </div>
     <div class="live-bar" id="live-bar">
@@ -289,7 +294,7 @@ function normalizarPiezaAPI(p) {
     refPrincipal:       p.refPrincipal,
     refOficial:         p.refOficial,
     anyoStock:          p.anyoStock,
-    precio:             p.precio > 0 ? p.precio : 0,        // REDIA manda EUROS con decimales (el manual dice x100, pero la realidad del canal no; mismo hallazgo del 12-jul en el generador)
+    precio:             p.precio > 0 ? p.precio / 100 : 0,  // CONFIRMADO con volcado 23-jul: la API manda CENTIMOS (mediana 1635 = 16,35 EUR), como dice el manual. El 'fix' del 12-jul que quito la division era erroneo.
     peso:               p.peso,
     pesoKg:             p.peso > 0 ? p.peso / 1000 : null,   // manual: peso en GRAMOS
     ubicacion:          p.ubicacion,
@@ -442,6 +447,7 @@ function buscar() {
   const marca  = document.getElementById('marca').value.trim().toLowerCase();
   const modelo = document.getElementById('modelo').value.trim().toLowerCase();
   const ktype  = document.getElementById('ktype').value.trim();
+  const fPrecio = document.getElementById('filtro-precio').value;
 
   const { piezas, vehiculos } = datos;
 
@@ -462,15 +468,18 @@ function buscar() {
     const okMarca = !marca  || marc.includes(marca);
     const okMod   = !modelo || mod.includes(modelo);
     const okKtype = !ktype  || String(veh.ktype || '') === ktype;
+    const okFiltroPrecio = !fPrecio
+      || (fPrecio === 'con' && p.precio > 0)
+      || (fPrecio === 'sin' && !(p.precio > 0));
     // Sin filtros activos, el modo JSON (escaparate 171k) solo muestra
     // piezas con foto Y con precio. En modo LIVE ese filtro ocultaba TODO
     // lo cargado (las primeras paginas del inventario son piezas antiguas
     // sin foto y con precio -1): en live se muestra todo lo traido.
-    const hayFiltro = q || marca || modelo || ktype;
+    const hayFiltro = q || marca || modelo || ktype || fPrecio;
     const okFoto   = modo === 'live' || hayFiltro || (p.fotos && p.fotos.length > 0);
     const okPrecio = modo === 'live' || hayFiltro || (p.precio > 0);
 
-    if (okQ && okMarca && okMod && okKtype && okFoto && okPrecio) {
+    if (okQ && okMarca && okMod && okKtype && okFoto && okPrecio && okFiltroPrecio) {
       filtradas.push({ ...p, _veh: veh });
     }
   }
