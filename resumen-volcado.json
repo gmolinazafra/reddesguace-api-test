@@ -1,0 +1,120 @@
+{
+  "generado": "2026-07-23T19:34:47.113Z",
+  "idempresa": "1225",
+  "fechaDesde": "01/01/2015 00:00:00",
+  "totalPiezas": 175042,
+  "totalVehiculos": 18046,
+  "totalDeclaradoApi": 175042,
+  "fechaModMin": "2026-07-02T16:34:36",
+  "fechaModMax": "2026-07-23T21:27:14",
+  "camposPieza": [
+    "anyoStock",
+    "codAlmacen",
+    "codArticulo",
+    "codFamilia",
+    "codVersion",
+    "descripcionArticulo",
+    "descripcionFamilia",
+    "fechaMod",
+    "idEmpresa",
+    "idVehiculo",
+    "observaciones",
+    "peso",
+    "precio",
+    "refLocal",
+    "refPrincipal",
+    "reserva",
+    "tipoMaterial",
+    "ubicacion",
+    "urlsImgs"
+  ],
+  "camposVehiculo": [
+    "alimentacion",
+    "anyoFin",
+    "anyoInicio",
+    "anyoVehiculo",
+    "bastidor",
+    "cilindrada",
+    "codMarca",
+    "codModelo",
+    "codVersion",
+    "codigo",
+    "codigoCambio",
+    "codigoMotor",
+    "color",
+    "combustible",
+    "estado",
+    "fechaMod",
+    "idEmpresa",
+    "idLocal",
+    "kilometraje",
+    "ktype",
+    "matricula",
+    "nombreMarca",
+    "nombreModelo",
+    "nombreVersion",
+    "numMarchas",
+    "observaciones",
+    "potenciaHP",
+    "potenciaKw",
+    "puertas",
+    "rvCode",
+    "tipoVersion",
+    "tiposMotor",
+    "transmision",
+    "urlsImgs"
+  ],
+  "porUbicacion": {
+    "1": {
+      "total": 42458,
+      "conPrecio": 42444,
+      "ejemploPrecios": [
+        1412,
+        1412,
+        1412,
+        1414,
+        1415
+      ]
+    },
+    "2": {
+      "total": 10,
+      "conPrecio": 0,
+      "ejemploPrecios": []
+    },
+    "5": {
+      "total": 2826,
+      "conPrecio": 0,
+      "ejemploPrecios": []
+    },
+    "7": {
+      "total": 128748,
+      "conPrecio": 128717,
+      "ejemploPrecios": [
+        4000,
+        1100,
+        1100,
+        1165,
+        1165
+      ]
+    },
+    "8": {
+      "total": 435,
+      "conPrecio": 0,
+      "ejemploPrecios": []
+    },
+    "9": {
+      "total": 565,
+      "conPrecio": 0,
+      "ejemploPrecios": []
+    }
+  },
+  "preciosPositivos": {
+    "muestreo": 5000,
+    "min": 971,
+    "p25": 1000,
+    "mediana": 1635,
+    "p75": 1826,
+    "max": 4000,
+    "pista": "Si la mediana ronda 2000-5000 son CÉNTIMOS (manual); si ronda 20-50 son EUROS."
+  }
+}
