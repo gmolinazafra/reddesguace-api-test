@@ -289,7 +289,7 @@ function normalizarPiezaAPI(p) {
     refPrincipal:       p.refPrincipal,
     refOficial:         p.refOficial,
     anyoStock:          p.anyoStock,
-    precio:             p.precio > 0 ? p.precio / 100 : 0,  // API en céntimos → euros
+    precio:             p.precio > 0 ? p.precio : 0,        // REDIA manda EUROS con decimales (el manual dice x100, pero la realidad del canal no; mismo hallazgo del 12-jul en el generador)
     peso:               p.peso,
     pesoKg:             p.peso > 0 ? p.peso / 1000 : null,   // manual: peso en GRAMOS
     ubicacion:          p.ubicacion,
