@@ -439,10 +439,13 @@ function buscar() {
     const okMarca = !marca  || marc.includes(marca);
     const okMod   = !modelo || mod.includes(modelo);
     const okKtype = !ktype  || String(veh.ktype || '') === ktype;
-    // Sin filtros activos, solo mostrar piezas con foto Y con precio
+    // Sin filtros activos, el modo JSON (escaparate 171k) solo muestra
+    // piezas con foto Y con precio. En modo LIVE ese filtro ocultaba TODO
+    // lo cargado (las primeras paginas del inventario son piezas antiguas
+    // sin foto y con precio -1): en live se muestra todo lo traido.
     const hayFiltro = q || marca || modelo || ktype;
-    const okFoto   = hayFiltro || (p.fotos && p.fotos.length > 0);
-    const okPrecio = hayFiltro || (p.precio > 0);
+    const okFoto   = modo === 'live' || hayFiltro || (p.fotos && p.fotos.length > 0);
+    const okPrecio = modo === 'live' || hayFiltro || (p.precio > 0);
 
     if (okQ && okMarca && okMod && okKtype && okFoto && okPrecio) {
       filtradas.push({ ...p, _veh: veh });
