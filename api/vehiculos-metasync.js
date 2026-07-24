@@ -2,14 +2,13 @@
 // Proyecto: reddesguace-api-test (Vercel)
 // Recibe: GET ?codigos=00492C,04091,06002
 // Devuelve: array JSON con los vehículos encontrados en Metasync
-// Sin CORS issues porque corre en servidor.
 
 const MS_API_BASE  = 'https://apis.metasync.com';
 const MS_APIKEY    = process.env.METASYNC_APIKEY_REDIA;
 const MS_IDEMPRESA = process.env.METASYNC_IDEMPRESA_REDIA;
 const FECHA_INICIO = '01/01/2015 00:00:00';
 const PAGE_SIZE    = 1000;
-const PAUSA_MS     = 200;
+const PAUSA_MS     = 250;
 
 export const config = { maxDuration: 60 };
 
@@ -24,7 +23,7 @@ async function llamarAPI(lastId) {
       idempresa: MS_IDEMPRESA,
     },
   });
-  if (!res.ok) throw new Error(`API Metasync ${res.status}`);
+  if (!res.ok) throw new Error(`API Metasync ${res.status}: ${(await res.text()).slice(0,200)}`);
   return res.json();
 }
 
@@ -44,14 +43,15 @@ export default async function handler(req, res) {
   const encontrados = new Map();
   let lastId = 0;
   let paginas = 0;
-  const MAX_PAGINAS = 200; // techo de seguridad (~200k piezas)
+  const MAX_PAGINAS = 200;
 
   try {
     while (encontrados.size < buscados.size && paginas < MAX_PAGINAS) {
       paginas++;
       const data = await llamarAPI(lastId);
-      const { piezas = [], vehiculos = [] } = data;
+      const { piezas = [], vehiculos = [], result_set } = data;
 
+      // Buscar códigos en los vehículos de esta página
       for (const v of vehiculos) {
         const cod = String(v.codigo || '').trim().toUpperCase();
         if (buscados.has(cod) && !encontrados.has(cod)) {
@@ -59,16 +59,13 @@ export default async function handler(req, res) {
         }
       }
 
-      if (!piezas.length && !vehiculos.length) break;
-
-      // lastId = mayor idLocal de las piezas de esta página
-      const ids = piezas.map(p => p.idLocal || 0).filter(Boolean);
-      if (!ids.length) break;
-      const nuevoLastId = Math.max(...ids);
-      if (nuevoLastId <= lastId) break;
+      // Paginación correcta: usar result_set.lastId que devuelve la API
+      if (!result_set || result_set.count === 0 || result_set.count < PAGE_SIZE) break;
+      const nuevoLastId = result_set.lastId;
+      if (!nuevoLastId || nuevoLastId <= lastId) break;
       lastId = nuevoLastId;
 
-      if (encontrados.size < buscados.size && paginas < MAX_PAGINAS) {
+      if (encontrados.size < buscados.size) {
         await new Promise(r => setTimeout(r, PAUSA_MS));
       }
     }
