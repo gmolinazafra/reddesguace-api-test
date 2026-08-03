@@ -1,7 +1,10 @@
 // api/vehiculos-metasync.js
 // Proyecto: reddesguace-api-test (Vercel)
-// Recibe: GET ?codigos=00492C,04091,06002
-// Devuelve: array JSON con los vehículos encontrados en Metasync
+// Recibe:
+//   GET ?codigos=00492C,04091,06002         → busca por código CRVNet (v.codigo)
+//   GET ?idlocales=57517,57524              → busca por idLocal Metasync (v.idLocal)
+// Ambos parámetros son mutuamente excluyentes; idlocales tiene prioridad si van los dos.
+// Devuelve: { encontrados, no_encontrados, paginas_consultadas }
 
 const MS_API_BASE  = 'https://apis.metasync.com';
 const MS_APIKEY    = process.env.METASYNC_APIKEY_REDIA;
@@ -33,12 +36,23 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const raw = String(req.query.codigos || '').trim();
-  if (!raw) return res.status(400).json({ error: 'Parámetro codigos requerido' });
+  // Detectar modo: idlocales (Metasync) o codigos (CRVNet)
+  const rawIdlocales = String(req.query.idlocales || '').trim();
+  const rawCodigos   = String(req.query.codigos   || '').trim();
 
-  const buscados = new Set(raw.split(',').map(c => c.trim().toUpperCase()).filter(Boolean));
-  if (buscados.size === 0) return res.status(400).json({ error: 'Sin códigos válidos' });
-  if (buscados.size > 200) return res.status(400).json({ error: 'Máximo 200 códigos por llamada' });
+  const modoIdlocal = rawIdlocales.length > 0;
+  const raw = modoIdlocal ? rawIdlocales : rawCodigos;
+
+  if (!raw) return res.status(400).json({ error: 'Parámetro codigos o idlocales requerido' });
+
+  // Parsear según modo
+  const buscados = new Set(
+    raw.split(',')
+      .map(c => modoIdlocal ? String(parseInt(c.trim(), 10)) : c.trim().toUpperCase())
+      .filter(Boolean)
+  );
+  if (buscados.size === 0) return res.status(400).json({ error: 'Sin valores válidos' });
+  if (buscados.size > 200) return res.status(400).json({ error: 'Máximo 200 valores por llamada' });
 
   const encontrados = new Map();
   let lastId = 0;
@@ -49,17 +63,19 @@ export default async function handler(req, res) {
     while (encontrados.size < buscados.size && paginas < MAX_PAGINAS) {
       paginas++;
       const data = await llamarAPI(lastId);
-      const { piezas = [], vehiculos = [], result_set } = data;
+      const { vehiculos = [], result_set } = data;
 
-      // Buscar códigos en los vehículos de esta página
       for (const v of vehiculos) {
-        const cod = String(v.codigo || '').trim().toUpperCase();
-        if (buscados.has(cod) && !encontrados.has(cod)) {
-          encontrados.set(cod, v);
+        // La clave de búsqueda cambia según el modo
+        const clave = modoIdlocal
+          ? String(v.idLocal ?? '')
+          : String(v.codigo || '').trim().toUpperCase();
+
+        if (clave && buscados.has(clave) && !encontrados.has(clave)) {
+          encontrados.set(clave, v);
         }
       }
 
-      // Paginación correcta: usar result_set.lastId que devuelve la API
       if (!result_set || result_set.count === 0 || result_set.count < PAGE_SIZE) break;
       const nuevoLastId = result_set.lastId;
       if (!nuevoLastId || nuevoLastId <= lastId) break;
@@ -79,5 +95,6 @@ export default async function handler(req, res) {
     encontrados: [...encontrados.values()],
     no_encontrados: noEncontrados,
     paginas_consultadas: paginas,
+    modo: modoIdlocal ? 'idlocal' : 'codigo',
   });
 }
